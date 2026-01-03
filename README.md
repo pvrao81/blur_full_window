@@ -4,7 +4,7 @@ Chrome Extension - Blur Full Chrome Window
 # Window Blur Toggle - Chrome Extension
 
 **Version:** 1.1  
-**Author:** Your Name  
+**Author:** Venky:)  
 
 ---
 
