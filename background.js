@@ -1,39 +1,65 @@
-// Key under which we store per-tab blur state
-const STORAGE_KEY = 'blurEnabledTabs';
+const STORAGE_KEY = 'blurredDomains';
 
-// Listen for icon clicks → toggle state for current tab
+// Helper to get domain from URL
+function getDomain(url) {
+  try {
+    return new URL(url).hostname;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Listen for icon clicks
 chrome.action.onClicked.addListener(async (tab) => {
-  if (!tab?.id) return;
+  if (!tab?.url || tab.url.startsWith('chrome://') || tab.url.startsWith('about:')) return;
 
-  // Get current map of tabId → boolean
+  const domain = getDomain(tab.url);
+  if (!domain) return;
+
   const data = await chrome.storage.local.get(STORAGE_KEY);
-  const blurTabs = data[STORAGE_KEY] || {};
+  let blurredDomains = data[STORAGE_KEY];
 
-  // Toggle
-  blurTabs[tab.id] = !blurTabs[tab.id];
+  // FIX: If blurredDomains is an object (old version) or undefined, reset to empty array
+  if (!Array.isArray(blurredDomains)) {
+    blurredDomains = [];
+  }
 
-  // Save back
-  await chrome.storage.local.set({ [STORAGE_KEY]: blurTabs });
+  if (blurredDomains.includes(domain)) {
+    // Remove domain (Toggle Off)
+    blurredDomains = blurredDomains.filter(d => d !== domain);
+  } else {
+    // Add domain (Toggle On)
+    blurredDomains.push(domain);
+  }
 
-  // Immediately apply/remove on current tab
-  await toggleBlurOnTab(tab.id, blurTabs[tab.id]);
+  await chrome.storage.local.set({ [STORAGE_KEY]: blurredDomains });
+
+  // Update ALL tabs that match this domain immediately
+  const allTabs = await chrome.tabs.query({});
+  for (const t of allTabs) {
+    const tDomain = getDomain(t.url);
+    if (tDomain === domain) {
+      toggleBlurOnTab(t.id, blurredDomains.includes(domain));
+    }
+  }
 });
 
-// When a tab updates (load, refresh, navigation), re-apply blur if needed
+// Re-apply when a tab refreshes or navigates
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  // Only act when the document has finished loading
-  if (changeInfo.status !== 'complete') return;
-  if (!tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('about:')) return;
-
+  if (changeInfo.status !== 'complete' || !tab.url) return;
+  
+  const domain = getDomain(tab.url);
   const data = await chrome.storage.local.get(STORAGE_KEY);
-  const blurTabs = data[STORAGE_KEY] || {};
+  let blurredDomains = data[STORAGE_KEY];
 
-  const shouldBeBlurred = !!blurTabs[tabId];
+  // FIX: Ensure it's an array here too
+  if (!Array.isArray(blurredDomains)) return;
 
-  await toggleBlurOnTab(tabId, shouldBeBlurred);
+  if (blurredDomains.includes(domain)) {
+    await toggleBlurOnTab(tabId, true);
+  }
 });
 
-// Helper: inject content script to apply/remove blur
 async function toggleBlurOnTab(tabId, enable) {
   try {
     await chrome.scripting.executeScript({
@@ -42,36 +68,30 @@ async function toggleBlurOnTab(tabId, enable) {
       args: [enable]
     });
   } catch (err) {
-    console.log(`Could not inject blur script: ${err.message}`);
+    // Silent fail for settings pages or internal chrome pages
   }
 }
 
-// This function will be serialized and run in content script context
 function setBlurState(shouldEnable) {
   const BLUR_ID = "___page_blur_overlay___";
-
-  // Remove existing overlay (regardless)
   const existing = document.getElementById(BLUR_ID);
   if (existing) existing.remove();
 
   if (!shouldEnable) return;
 
-  // Create overlay
   const overlay = document.createElement("div");
   overlay.id = BLUR_ID;
-
   Object.assign(overlay.style, {
     position: "fixed",
     top: "0",
     left: "0",
     width: "100vw",
     height: "100vh",
-    backdropFilter: "blur(8px)",
-    WebkitBackdropFilter: "blur(8px)",
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    backdropFilter: "blur(12px)",
+    WebkitBackdropFilter: "blur(12px)",
+    backgroundColor: "rgba(0, 0, 0, 0.1)",
     zIndex: "2147483647",
     pointerEvents: "none"
   });
-
   document.body.appendChild(overlay);
 }
