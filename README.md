@@ -1,16 +1,16 @@
 # blur_full_window
 Chrome Extension - Blur Full Chrome Window
 
-# Window Blur Toggle - Chrome Extension
+# Window Blur - Domain Specific Toggle - Chrome Extension
 
-**Version:** 1.1  
+**Version:** 0.2  
 **Author:** Venky:)  
 
 ---
 
 ## Overview
 
-**Window Blur Toggle** is a lightweight Chrome extension that lets you **blur the entire webpage** with a single click. Click again to remove the blur. It's simple, fast, and works on any website without affecting scrolling or clicking.
+**Window Blur Toggle** is a lightweight Chrome extension that lets you **blur the entire webpage with Domain Specific** with a single click. Click again to remove the blur. The Domain remains blured across the browser until you toggle it to Off. It's simple, fast, and works on any website without affecting scrolling or clicking.
 
 ---
 
